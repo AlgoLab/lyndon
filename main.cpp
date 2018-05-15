@@ -36,8 +36,8 @@ parse_line(const std::string &line) {
         tokens.push_back(stoi(str));
     }
 
-    auto id = tokens.back(); tokens.pop_back();
     auto pos = tokens.back(); tokens.pop_back();
+    auto id = tokens.back(); tokens.pop_back();
     auto id_pos = std::make_pair(id, pos);
 
     return std::make_pair(tokens, id_pos);
@@ -67,10 +67,10 @@ parse_file(const std::string &path) {
 void print_pairs(std::vector<std::vector<int>> facts, std::vector<std::pair<int, int>> pos_lens) {
     std::cout << "Size: " << facts.size() << std::endl << std::endl;
 
-    for (auto i = 0; i < facts.size(); i++) {
+    for (auto i = 0; i < 10; i++) {
         std::cout << facts[i].size() << "-ple: ";
         for (auto v : facts[i]) std::cout << v << " ";
-        std::cout << std::endl << "Pair: " << pos_lens[i].first << pos_lens[i].second << std::endl << std::endl;
+        std::cout << std::endl << "Pair: " << pos_lens[i].first << " " << pos_lens[i].second << std::endl << std::endl;
     }
 }
 
