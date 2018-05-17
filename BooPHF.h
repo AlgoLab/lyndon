@@ -1,4 +1,4 @@
-// BooPHF library
+ // BooPHF library
 // intended to be a minimal perfect hash function with fast and low memory construction, at the cost of (slightly) higher bits/elem than other state of the art libraries once built.
 // should work with arbitray large number of elements, based on a cascade of  "collision-free" bit arrays
 

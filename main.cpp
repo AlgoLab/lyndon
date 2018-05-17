@@ -64,7 +64,8 @@ parse_file(const std::string &path) {
 };
 
 
-void print_pairs(std::vector<std::vector<int>> facts, std::vector<std::pair<int, int>> pos_lens) {
+void print_pairs(std::vector<std::vector<int>> facts,
+                 std::vector<std::pair<int, int>> pos_lens) {
     std::cout << "Size: " << facts.size() << std::endl << std::endl;
 
     for (auto i = 0; i < 10; i++) {
@@ -75,15 +76,17 @@ void print_pairs(std::vector<std::vector<int>> facts, std::vector<std::pair<int,
 }
 
 
-class tuple_hasher
+class node_hasher
 {
 public:
-//	uint64_t operator() (my_struct key, uint64_t seed=0) const
-//	{
-//		uint64_t hash[2];
-//		MurmurHash3_x64_128(&key, sizeof(key), seed, hash);
-//		return hash[0];
-//	}
+/*
+	uint64_t operator() (my_struct key, uint64_t seed=0) const
+	{
+		uint64_t hash[2];
+		MurmurHash3_x64_128(&key, sizeof(key), seed, hash);
+		return hash[0];
+	}
+//*/
 
     uint64_t operator() (std::vector<int> key, uint64_t seed=0) const
     {
@@ -99,7 +102,25 @@ public:
     }
 };
 
-typedef boomphf::mphf<std::vector<int>, tuple_hasher> boophf_t;
+class edge_hasher
+{
+public:
+    uint64_t operator() (std::vector<int> key, uint64_t seed=0) const
+    {
+        uint64_t hash = 0;
+
+        for (auto i = 0; i < key.size()-1; i++) {
+            hash ^= key[i];
+        }
+
+        hash ^= seed;
+
+        return hash;
+    }
+};
+
+typedef boomphf::mphf<std::vector<int>, node_hasher> nodes_phf;
+typedef boomphf::mphf<std::vector<int>, edge_hasher> edges_phf;
 
 
 
@@ -114,33 +135,46 @@ int main (int argc, char *argv[]) {
     if (argc > 2)
         print_pairs(facts, id_pos);
 
-    // Build MPH
+    // Build MPH for nodes
+
+    std::sort(facts.begin(), facts.end(),
+              [](const std::vector<int>& a, const std::vector<int>& b) {
+                  return a[2] < b[2];
+              });
+
+    // TODO: Eliminare i duplicati
     auto gammaFactor = 1.0;
     auto nthreads = 1;
     auto data_iterator = boomphf::range(facts.begin(), facts.end());
-    auto* mph = new boophf_t(
+    auto* nodes_mph = new nodes_phf(
             facts.size(), data_iterator, nthreads, gammaFactor, false
     );
 
-    // Fill array
-    std::vector<std::pair<int, int>> nodes_hash(facts.size());
+
+    // Fill nodes array
+    std::vector<std::vector<std::pair<int, int>>> nodes(
+            nodes_mph->nbKeys(),
+            std::vector<std::pair<int, int>>(0)
+    );
     for (auto i = 0; i < facts.size(); i++) {
-        auto key = mph->lookup(facts[i]);
-        nodes_hash[key] = id_pos[i];
+        auto key = nodes_mph->lookup(facts[i]);
+        std::cout << "Key-" << i << ": " << key << std::endl;
+        nodes[key].push_back(id_pos[i]);
     }
 
-    auto miss = 0;
-    for (auto i = 0; i < facts.size(); i++) {
-        auto curr = facts[i];
-        auto key = mph->lookup(curr);
+    // Build MPH for edges
+    // TODO: Eliminare i duplicati
+    // TODO: Calcola l'hash su tutti i valori
+    auto* edges_mph = new edges_phf(
+            facts.size(), data_iterator, nthreads, gammaFactor, false
+    );
 
-        if (nodes_hash[key] != id_pos[i]) {
-            miss++;
-            std::cout << "(" << nodes_hash[key].first << ", " << nodes_hash[key].second << ") - ("
-                << id_pos[i].first << ", " << id_pos[i].second << ")" << std::endl;
-        }
+    // FIll edges array
+    std::vector<std::vector<int>> edges(edges_mph->nbKeys(), std::vector<int>(0));
+    for (auto i = 0; i < facts.size(); i++) {
+        auto key = edges_mph->lookup(facts[i]);
+        edges[key].push_back(facts[i].back());
     }
 
-    std::cout << std::endl << "Total: " << facts.size() << std::endl;
-    std::cout  << "Errors: " << miss << std::endl;
+
 }
