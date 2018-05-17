@@ -90,7 +90,7 @@ public:
         uint64_t hash = 0;
 
         for (auto v : key) {
-            hash ^= v >> 13;
+            hash ^= v;
         }
 
         hash ^= seed;
@@ -104,26 +104,43 @@ typedef boomphf::mphf<std::vector<int>, tuple_hasher> boophf_t;
 
 
 int main (int argc, char *argv[]) {
+    // Parse pairs
     auto pairs = parse_file(argv[1]);
 
     auto facts = pairs.first;
-    auto pos_lens = pairs.second;
+    auto id_pos = pairs.second;
 
+    // Debug
     if (argc > 2)
-        print_pairs(facts, pos_lens);
+        print_pairs(facts, id_pos);
 
+    // Build MPH
     auto gammaFactor = 1.0;
     auto nthreads = 1;
     auto data_iterator = boomphf::range(facts.begin(), facts.end());
-    auto* mpf = new boophf_t(
+    auto* mph = new boophf_t(
             facts.size(), data_iterator, nthreads, gammaFactor, false
     );
 
+    // Fill array
     std::vector<std::pair<int, int>> nodes_hash(facts.size());
     for (auto i = 0; i < facts.size(); i++) {
-        auto idx = mpf->lookup(facts[i]);
-        nodes_hash[idx] = pos_lens[i];
+        auto key = mph->lookup(facts[i]);
+        nodes_hash[key] = id_pos[i];
     }
 
+    auto miss = 0;
+    for (auto i = 0; i < facts.size(); i++) {
+        auto curr = facts[i];
+        auto key = mph->lookup(curr);
 
+        if (nodes_hash[key] != id_pos[i]) {
+            miss++;
+            std::cout << "(" << nodes_hash[key].first << ", " << nodes_hash[key].second << ") - ("
+                << id_pos[i].first << ", " << id_pos[i].second << ")" << std::endl;
+        }
+    }
+
+    std::cout << std::endl << "Total: " << facts.size() << std::endl;
+    std::cout  << "Errors: " << miss << std::endl;
 }
