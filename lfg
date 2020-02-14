@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+import sys, argparse, subprocess
+
+algs = ['cfl', 'icfl', 'cfl_icfl', 'cfl_comb', 'icfl_comb', 'cfl_icfl_comb']
+borders = ['remove-three', 'up-to-ten', 'twenty-most']
+
+def main():
+    parser = argparse.ArgumentParser(prog='lfg')
+    subparsers = parser.add_subparsers(help='commands')
+
+    parser_a = subparsers.add_parser('compute-factorizations', help='compute factorizations of one or multiple fasta')
+    parser_a.add_argument('fasta',  help='fasta file (or folder if with -n)')
+    parser_a.add_argument('-a', choices=algs, required=True, help='factorization algorithm')
+    parser_a.add_argument('-b', choices=borders, help='strategy to remove borders', default=None)
+    parser_a.add_argument('-o', help='output file (or folder if with -n)', default=None)
+    parser_a.add_argument('-n', help='number of processes', type=int, action='store', default=1)
+    parser_a.set_defaults(handler=compute_factorizations)
+
+    parser_b = subparsers.add_parser('build', help='build finger-graph')
+    parser_b.add_argument('factorizations', help='factorizations file')
+    parser_b.add_argument('-k', dest='k', type=int, default=5, action='store', help='k-finger dimension [default 5]')
+    parser_b.add_argument('-l', dest='limit', type=int, default=30, action='store', help='minimum length for a k-finger [default 30]')
+    parser_b.add_argument('--no-norm', dest='no_norm', help='do not normalize k-fingers', action='store_true', default=False)
+    parser_b.add_argument('--no-enriched', dest='no_enriched', help='do not enrich k-fingers', action='store_true', default=False)
+    parser_b.set_defaults(handler=build)
+
+    args = parser.parse_args()
+    try:
+        if args.handler is not None:
+            args.handler(args)
+    except AttributeError as e:
+        parser.print_help()
+
+def compute_factorizations(args):
+    cmd = "./python/compute_factorizations.py"
+    if args.n > 1:
+        cmd = "./python/mt_compute_factorizations.py"
+
+    params = [
+        cmd,
+        "-a", args.a,
+        "-i", args.fasta,
+    ]
+
+    if args.o is not None:
+        params += ["-o", args.o]
+    if args.b is not None:
+        params += ["--border", args.b]
+    if args.n > 1:
+        params += ["-n", args.n]
+
+    subprocess.call(params)
+
+def build(args):
+    params = [
+        "./finger-graph",
+        "-k", str(args.k),
+        "-l", str(args.limit),
+    ]
+    if args.no_norm:
+        params.append("--no-norm")
+    if args.no_enriched:
+        params.append("--no-enriched")
+    params.append(args.factorizations)
+    subprocess.call(params)
+
+if __name__ == '__main__':
+    main()
